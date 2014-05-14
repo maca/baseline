@@ -24,6 +24,10 @@ src =
   styles:  'app/styles/**/*'
   images:  'app/images/**/*'
 
+error = (e) ->
+  log colors.red(e)
+  beep()
+
 gulp.task 'html', ->
   gulp.src src.html
     .pipe changed(buildDir)
@@ -34,9 +38,7 @@ gulp.task 'coffee', ->
   gulp.src src.scripts
     .pipe changed(dest, extension: '.js')
     .pipe coffee(sourceMap: true)
-    .on 'error', (e) ->
-      log colors.red(e)
-      beep()
+    .on 'error', error
     .pipe gulp.dest(dest)
     .pipe
 
@@ -44,7 +46,7 @@ gulp.task 'sass', ->
   dest = "#{buildDir}/styles"
   gulp.src src.styles
     .pipe changed(dest, extension: '.css')
-    .pipe sass()
+    .pipe sass(onError: error)
     .pipe gulp.dest(dest)
 
 gulp.task 'watch', ->
