@@ -18,6 +18,7 @@
     "gulp-shell": "~0.2.5",
     "gulp-mocha-phantomjs": "~0.2.1",
     "gulp-rename": "~1.2.0",
-    "gulp-filter": "~0.4.1"
+    "gulp-filter": "~0.4.1",
+    "gulp-eco-template": "~0.1.0"
   }
 }

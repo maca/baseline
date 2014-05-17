@@ -10,7 +10,7 @@ debug    = require 'gulp-debug'
 changed  = require 'gulp-changed'
 shell    = require 'gulp-shell'
 specs    = require 'gulp-mocha-phantomjs'
-template = require '/home/maca/Code/JavaScript/gulp-eco-template'
+template = require 'gulp-eco-template'
 rename   = require 'gulp-rename'
 filter   = require 'gulp-filter'
 {log, colors, beep} = require 'gulp-util'
@@ -70,7 +70,7 @@ gulp.task 'watch', ->
     .on 'change', (e) -> gulp.start 'build' if e.type is 'deleted'
   gulp.watch "{#{buildDir},spec}/**/*"
     .on 'change', (e) -> gulp.src(e.path).pipe server.reload()
-  gulp.watch "{#{buildDir},spec}/**/*.js", ['spec']
+  # gulp.watch "{#{buildDir},spec}/**/*.js", ['spec']
 
 gulp.task 'bower', shell.task ['bower install'], quiet: true
 gulp.task 'clean', -> gulp.src(buildDir, read: false).pipe clean()
@@ -83,20 +83,26 @@ gulp.task 'generate', ->
   {type, name} = opts
 
   specFilter   = filter '**/*_spec.{js,coffee}'
-  scriptFilter = filter ['**/*.{js,coffee}', '!**/*_spec.{js,coffee}']
+  factoryFilter   = filter '**/*_factory.{js,coffee}'
+  scriptFilter = filter [
+    '**/*.{js,coffee}',
+    '!**/*_spec.{js,coffee}'
+    '!**/*_factory.{js,coffee}'
+  ]
 
   gulp.src "lib/templates/#{type}*"
     .pipe template(opts)
-    .pipe rename( (path) ->
-      path.dirname += "/#{type}s"
+    .pipe rename (path) ->
       path.basename = path.basename.replace(type, name)
       undefined
-    )
     .pipe scriptFilter
-    .pipe gulp.dest('app/scripts')
+    .pipe gulp.dest("app/scripts/#{type}s")
     .pipe scriptFilter.restore()
     .pipe specFilter
-    .pipe gulp.dest('spec')
+    .pipe gulp.dest("spec/#{type}s")
+    .pipe specFilter.restore()
+    .pipe factoryFilter
+    .pipe gulp.dest('spec/factories')
   
 gulp.task 'serve', ->
   server.server
