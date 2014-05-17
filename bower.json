@@ -1,6 +1,8 @@
 {
   "name": "Baseline",
   "dependencies": {
-    "jquery": "~2.1.1"
+    "jquery": "~2.1.1",
+    "requirejs": "~2.1.11",
+    "requirejs-text": "~2.0.12"
   }
 }

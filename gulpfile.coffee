@@ -1,18 +1,31 @@
-gulp    = require 'gulp'
-bower   = require 'gulp-bower'
-clean   = require 'gulp-clean'
-coffee  = require 'gulp-coffee'
-sass    = require 'gulp-sass'
-concat  = require 'gulp-concat'
-uglify  = require 'gulp-uglify'
-connect = require 'gulp-connect'
-debug   = require 'gulp-debug'
-changed = require 'gulp-changed'
+gulp     = require 'gulp'
+clean    = require 'gulp-clean'
+coffee   = require 'gulp-coffee'
+sass     = require 'gulp-sass'
+prefix   = require 'gulp-autoprefixer'
+concat   = require 'gulp-concat'
+uglify   = require 'gulp-uglify'
+server   = require 'gulp-connect'
+debug    = require 'gulp-debug'
+changed  = require 'gulp-changed'
+shell    = require 'gulp-shell'
+specs    = require 'gulp-mocha-phantomjs'
+template = require '/home/maca/Code/JavaScript/gulp-eco-template'
+rename   = require 'gulp-rename'
+filter   = require 'gulp-filter'
 {log, colors, beep} = require 'gulp-util'
 {mkdirSync} = require 'fs'
 
-vendorPath = 'app/vendor'
-buildDir   = '.build'
+String::camelize = ->
+  @replace /(?:^|[-_])(\w)/g, (_, c) ->
+    (if c then c.toUpperCase() else "")
+
+
+vendorPath     = 'app/vendor'
+buildDir       = '.build'
+serverPort     = 8080
+prefixVersions = ['last 2 version', 'safari 5', 'ie 8',
+  'ie 9', 'opera 12.1', 'ios 6', 'android 4']
 
 src =
   html: [
@@ -20,9 +33,8 @@ src =
     "!#{vendorPath}"
     "!#{vendorPath}/**"
   ]
-  scripts: 'app/scripts/**/*'
-  styles:  'app/styles/**/*'
-  images:  'app/images/**/*'
+  coffee: 'app/scripts/**/*.coffee'
+  sass:  'app/styles/**/*.scss'
 
 error = (e) ->
   log colors.red(e)
@@ -35,7 +47,7 @@ gulp.task 'html', ->
 
 gulp.task 'coffee', ->
   dest = "#{buildDir}/scripts"
-  gulp.src src.scripts
+  gulp.src src.coffee
     .pipe changed(dest, extension: '.js')
     .pipe coffee(sourceMap: true)
     .on 'error', error
@@ -44,28 +56,55 @@ gulp.task 'coffee', ->
 
 gulp.task 'sass', ->
   dest = "#{buildDir}/styles"
-  gulp.src src.styles
+  gulp.src src.sass
     .pipe changed(dest, extension: '.css')
     .pipe sass(onError: error)
+    .pipe prefix(prefixVersions...)
     .pipe gulp.dest(dest)
 
 gulp.task 'watch', ->
-  gulp.watch src.html, ['html']
-  gulp.watch src.scripts, ['coffee']
-  gulp.watch src.styles, ['sass']
-  gulp.watch "#{buildDir}/**/*"
-    .on 'change', (e) -> gulp.src(e.path).pipe connect.reload()
+  gulp.watch src.html,   ['html']
+  gulp.watch src.coffee, ['coffee']
+  gulp.watch src.sass,   ['sass']
+  gulp.watch "app/**/*"
+    .on 'change', (e) -> gulp.start 'build' if e.type is 'deleted'
+  gulp.watch "{#{buildDir},spec}/**/*"
+    .on 'change', (e) -> gulp.src(e.path).pipe server.reload()
+  gulp.watch "{#{buildDir},spec}/**/*.js", ['spec']
 
-gulp.task 'bower', -> bower(vendorPath)
+gulp.task 'bower', shell.task ['bower install'], quiet: true
 gulp.task 'clean', -> gulp.src(buildDir, read: false).pipe clean()
 gulp.task 'reset', ['bower', 'clean'], -> mkdirSync(buildDir)
 gulp.task 'build', ['reset'], ->
   gulp.start 'html', 'coffee', 'sass'
 
+gulp.task 'generate', ->
+  opts   = gulp.env
+  {type, name} = opts
+
+  specFilter   = filter '**/*_spec.{js,coffee}'
+  scriptFilter = filter ['**/*.{js,coffee}', '!**/*_spec.{js,coffee}']
+
+  gulp.src "lib/templates/#{type}*"
+    .pipe template(opts)
+    .pipe rename( (path) ->
+      path.dirname += "/#{type}s"
+      path.basename = path.basename.replace(type, name)
+      undefined
+    )
+    .pipe scriptFilter
+    .pipe gulp.dest('app/scripts')
+    .pipe scriptFilter.restore()
+    .pipe specFilter
+    .pipe gulp.dest('spec')
+  
 gulp.task 'serve', ->
-  connect.server
-    root: [buildDir, 'app']
+  server.server
+    root: [buildDir, 'app', '.']
+    port: serverPort
     livereload: true
 
-gulp.task 'default', ['build', 'serve', 'watch']
+gulp.task 'spec:bower', shell.task ['bower install'], quiet: true, cwd: 'spec'
+gulp.task 'spec', -> gulp.src('spec/index.html').pipe specs()
 
+gulp.task 'default', ['build', 'serve', 'watch', 'spec:bower']
